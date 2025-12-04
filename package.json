@@ -1,0 +1,11 @@
+{
+    "scripts": {
+        "lint": "solhint 'src/**/*.sol'",
+        "format": "prettier --write ."
+    },
+    "devDependencies": {
+        "prettier": "^3.5.3",
+        "prettier-plugin-solidity": "^2.0.0",
+        "solhint": "^5.1.0"
+    }
+}
