@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from '@openzeppelin/contracts/access/Ownable.sol';
 
 /// @title Box
 /// @notice A simple contract to store and retrieve a number, restricted to the owner.
@@ -34,5 +34,5 @@ contract Box is Ownable {
     /**
      * @notice Initializes the contract. Sets the deployer as the initial owner.
      */
-    constructor() Ownable(msg.sender){}
+    constructor() Ownable(msg.sender) {}
 }

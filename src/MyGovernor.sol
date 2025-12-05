@@ -2,20 +2,20 @@
 // Compatible with OpenZeppelin Contracts ^5.5.0
 pragma solidity ^0.8.18;
 
-import {Governor} from "@openzeppelin/contracts/governance/Governor.sol";
-import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
-import {GovernorCountingSimple} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
-import {GovernorVotes} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
-import {GovernorVotesQuorumFraction} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import {GovernorTimelockControl} from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
-import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import { Governor } from '@openzeppelin/contracts/governance/Governor.sol';
+import { GovernorSettings } from '@openzeppelin/contracts/governance/extensions/GovernorSettings.sol';
+import { GovernorCountingSimple } from '@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol';
+import { GovernorVotes } from '@openzeppelin/contracts/governance/extensions/GovernorVotes.sol';
+import { GovernorVotesQuorumFraction } from '@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol';
+import { GovernorTimelockControl } from '@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol';
+import { TimelockController } from '@openzeppelin/contracts/governance/TimelockController.sol';
+import { IVotes } from '@openzeppelin/contracts/governance/utils/IVotes.sol';
 
 /// @title MyGovernor
 /// @notice Simple Governor implementation wired with a timelock and a voting token.
 contract MyGovernor is
     Governor,
- GovernorSettings,
+    GovernorSettings,
     GovernorCountingSimple,
     GovernorVotes,
     GovernorVotesQuorumFraction,
@@ -26,10 +26,13 @@ contract MyGovernor is
      * @param _token Governance token that exposes the IVotes interface.
      * @param _timelock Timelock that will queue and execute approved proposals.
      */
-    constructor(IVotes _token, TimelockController _timelock)
-        Governor("MyGovernor")
+    constructor(
+        IVotes _token,
+        TimelockController _timelock
+    )
+        Governor('MyGovernor')
         GovernorSettings(1, /* 1 block */ 50400, /* 1 week */ 0)
-    GovernorVotes(_token)
+        GovernorVotes(_token)
         GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)
     {}
@@ -38,20 +41,32 @@ contract MyGovernor is
 
     /// @notice Provides the delay between proposal creation and voting start.
     /// @return Number of blocks that need to elapse before voting begins.
-    function votingDelay() public view override(Governor, GovernorSettings) returns (uint256) {
+    function votingDelay()
+        public
+        view
+        override(Governor, GovernorSettings)
+        returns (uint256)
+    {
         return super.votingDelay();
     }
 
     /// @notice Returns the length of the voting window.
     /// @return Number of blocks available for casting votes.
-    function votingPeriod() public view override(Governor, GovernorSettings) returns (uint256) {
+    function votingPeriod()
+        public
+        view
+        override(Governor, GovernorSettings)
+        returns (uint256)
+    {
         return super.votingPeriod();
     }
 
     /// @notice Calculates quorum based on a fraction of total supply.
     /// @param blockNumber Snapshot block to evaluate. Calculate the totalsupply at this block.
     /// @return Required voting power for a proposal to succeed.
-    function quorum(uint256 blockNumber)
+    function quorum(
+        uint256 blockNumber
+    )
         public
         view
         override(Governor, GovernorVotesQuorumFraction)
@@ -63,7 +78,9 @@ contract MyGovernor is
     /// @notice Exposes the lifecycle state for a proposal.
     /// @param proposalId Identifier returned by propose.
     /// @return Current state in the Governor state machine.
-    function state(uint256 proposalId)
+    function state(
+        uint256 proposalId
+    )
         public
         view
         override(Governor, GovernorTimelockControl)
@@ -91,7 +108,12 @@ contract MyGovernor is
 
     /// @notice Minimum voting power required to create a proposal.
     /// @return Threshold expressed in number of votes.
-    function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
+    function proposalThreshold()
+        public
+        view
+        override(Governor, GovernorSettings)
+        returns (uint256)
+    {
         return super.proposalThreshold();
     }
 
@@ -106,7 +128,14 @@ contract MyGovernor is
         bytes[] memory calldatas,
         bytes32 descriptionHash
     ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
-        return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
+        return
+            super._queueOperations(
+                proposalId,
+                targets,
+                values,
+                calldatas,
+                descriptionHash
+            );
     }
 
     /**
@@ -119,7 +148,13 @@ contract MyGovernor is
         bytes[] memory calldatas,
         bytes32 descriptionHash
     ) internal override(Governor, GovernorTimelockControl) {
-        super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
+        super._executeOperations(
+            proposalId,
+            targets,
+            values,
+            calldatas,
+            descriptionHash
+        );
     }
 
     /**
@@ -135,7 +170,12 @@ contract MyGovernor is
     }
 
     /// @notice Address that executes queued operations (the timelock contract).
-    function _executor() internal view override(Governor, GovernorTimelockControl) returns (address) {
+    function _executor()
+        internal
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (address)
+    {
         return super._executor();
     }
 
@@ -144,12 +184,9 @@ contract MyGovernor is
      * @param interfaceId EIP-165 interface identifier.
      * @return True if the interface is implemented, false otherwise.
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(Governor)
-        returns (bool)
-    {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(Governor) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
@@ -158,12 +195,9 @@ contract MyGovernor is
      * @param proposalId Identifier of the proposal.
      * @return True if the proposal needs to be queued, false otherwise.
      */
-    function proposalNeedsQueuing(uint256 proposalId)
-        public
-        view
-        override(Governor, GovernorTimelockControl)
-        returns (bool)
-    {
+    function proposalNeedsQueuing(
+        uint256 proposalId
+    ) public view override(Governor, GovernorTimelockControl) returns (bool) {
         return super.proposalNeedsQueuing(proposalId);
     }
 }

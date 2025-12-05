@@ -9,7 +9,16 @@
             }
         ],
         "max-line-length": ["warn", 120],
+        "quotes": ["off"],
         "no-console": "off",
-        "no-inline-assembly": "warn"
+        "no-inline-assembly": "warn",
+        "avoid-low-level-calls": "error",
+        "avoid-sha3": "warn",
+        "not-rely-on-time": "warn",
+        "func-name-mixedcase": "error",
+        "var-name-mixedcase": "warn",
+        "state-visibility": "error",
+        "avoid-suicide": "error",
+        "avoid-throw": "error"
     }
 }

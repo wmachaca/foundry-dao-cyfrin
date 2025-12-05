@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
+import { TimelockController } from '@openzeppelin/contracts/governance/TimelockController.sol';
 
 contract TimeLock is TimelockController {
     //minDelay is the time that has to pass before a queued transaction can be executed
