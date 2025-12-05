@@ -29,27 +29,58 @@ contract MyGovernorTest is Test {
     address public constant VOTER = address(1);
 
     function setUp() public {
-        token = new GovToken();
+        // Deploy the governance token and mint tokens to the voter
+        token = new GovToken(address(this), 'GovToken', 'GTK');
         token.mint(VOTER, 100e18);
 
+        // Delegate voting power to the voter
+        // OpenZeppelin's ERC20Votes contract requires delegation for a token holder to have voting power.
+        // This delegation can be performed by any token holder, as the contract does not require the caller to be the owner of the token contract.
+        // In this case, the VOTER address is delegating its own voting power to itself, enabling it to participate in governance.
         vm.prank(VOTER);
         token.delegate(VOTER);
+
+        // Deploy the timelock and governor contracts
+        // The TimeLock contract enforces a delay between when a proposal is passed and when it can be executed.
+        // This delay allows token holders to review and respond to governance decisions before execution.
+        // The test contract deployer (address(this)) is the initial admin of the TimeLock.
+        // Deploy the TimeLock contract
+        // The TimeLock contract is responsible for enforcing a delay between when a proposal is queued and when it can be executed.
+        // It is initialized with:
+        // - MIN_DELAY: The minimum delay (in seconds) for proposal execution.
+        // - proposers: The initial list of addresses with the PROPOSER_ROLE (can queue proposals).
+        // - executors: The initial list of addresses with the EXECUTOR_ROLE (can execute proposals).
         timelock = new TimeLock(MIN_DELAY, proposers, executors);
+
+        // The MyGovernor contract handles the governance logic, such as voting and proposal creation.
+        // It interacts with the TimeLock to queue and execute proposals.
         governor = new MyGovernor(token, timelock);
+
+        // Assign roles to the governor and revoke admin role from this contract
+        // The governor contract needs the PROPOSER_ROLE to queue proposals in the TimeLock.
+        // The EXECUTOR_ROLE is granted to address(0), allowing anyone to execute proposals after the delay.
+        // Finally, the DEFAULT_ADMIN_ROLE is revoked from the deployer (address(this)) to decentralize control.
         bytes32 proposerRole = timelock.PROPOSER_ROLE();
         bytes32 executorRole = timelock.EXECUTOR_ROLE();
-        bytes32 adminRole = timelock.TIMELOCK_ADMIN_ROLE();
+        bytes32 adminRole = timelock.DEFAULT_ADMIN_ROLE();
 
         timelock.grantRole(proposerRole, address(governor));
         timelock.grantRole(executorRole, address(0));
-        //timelock.revokeRole(adminRole, msg.sender);
+        //timelock.revokeRole(adminRole, msg.sender);// in this case msg.sender is address(this)
         timelock.revokeRole(adminRole, address(this));
 
+        // Deploy the Box contract and transfer ownership to the TimeLock
+        // The TimeLock is made the owner of the Box contract to enforce governance decisions.
+        // This ensures that:
+        // - Only proposals approved by the Governor and queued in the TimeLock can modify the Box.
+        // - A delay is enforced before any changes are executed, providing security and time for token holders to react.
+        // - The governance system remains decentralized, as the Governor does not directly control the Box.
         box = new Box();
         box.transferOwnership(address(timelock));
     }
 
     function testCantUpdateBoxWithoutGovernance() public {
+        // Expect the transaction to revert because the caller is not authorized
         vm.expectRevert();
         box.store(1);
     }
@@ -57,6 +88,8 @@ contract MyGovernorTest is Test {
     function testGovernanceUpdatesBox() public {
         uint256 valueToStore = 777;
         string memory description = 'Store 1 in Box';
+
+        // Encode the function call to store a value in the Box contract
         bytes memory encodedFunctionCall = abi.encodeWithSignature(
             'store(uint256)',
             valueToStore
@@ -64,6 +97,7 @@ contract MyGovernorTest is Test {
         addressesToCall.push(address(box));
         values.push(0);
         functionCalls.push(encodedFunctionCall);
+
         // 1. Propose to the DAO
         uint256 proposalId = governor.propose(
             addressesToCall,
@@ -72,15 +106,24 @@ contract MyGovernorTest is Test {
             description
         );
 
-        console2.log('Proposal State:', uint256(governor.state(proposalId))); //Pending, 0
-        assertEq(uint256(governor.state(proposalId)), 0);
-        // governor.proposalSnapshot(proposalId)
-        // governor.proposalDeadline(proposalId)
+        // Proposal states are defined in OpenZeppelin's Governor.sol:
+        // 0 = Pending: Proposal is created but not yet active.
+        // 1 = Active: Voting is open.
+        // 2 = Canceled: Proposal has been canceled.
+        // 3 = Defeated: Proposal did not pass.
+        // 4 = Succeeded: Proposal passed the vote.
+        // 5 = Queued: Proposal is queued in the timelock for execution.
+        // 6 = Expired: Proposal is no longer executable.
+        // 7 = Executed: Proposal has been executed.
 
+        console2.log('Proposal State:', uint256(governor.state(proposalId))); // Pending, 0
+        assertEq(uint256(governor.state(proposalId)), 0);
+
+        // Advance time and blocks to make the proposal active
         vm.warp(block.timestamp + VOTING_DELAY + 1);
         vm.roll(block.number + VOTING_DELAY + 1);
 
-        console2.log('Proposal State:', uint256(governor.state(proposalId))); //Active, 1
+        console2.log('Proposal State:', uint256(governor.state(proposalId))); // Active, 1
         assertEq(uint256(governor.state(proposalId)), 1);
 
         // 2. Vote
@@ -90,27 +133,34 @@ contract MyGovernorTest is Test {
         vm.prank(VOTER);
         governor.castVoteWithReason(proposalId, voteWay, reason);
 
+        // Advance time and blocks to end the voting period
         vm.warp(block.timestamp + VOTING_PERIOD + 1);
         vm.roll(block.number + VOTING_PERIOD + 1);
 
-        console2.log('Proposal State:', uint256(governor.state(proposalId))); //Succeeded, 4
+        console2.log('Proposal State:', uint256(governor.state(proposalId))); // Succeeded, 4
         assertEq(uint256(governor.state(proposalId)), 4);
-        // 3. Queue
+
+        // 3. Queue the proposal in the timelock
         bytes32 descriptionHash = keccak256(abi.encodePacked(description));
         governor.queue(addressesToCall, values, functionCalls, descriptionHash);
         vm.roll(block.number + MIN_DELAY + 1);
         vm.warp(block.timestamp + MIN_DELAY + 1);
-        console2.log('Proposal State:', uint256(governor.state(proposalId))); //Queued, 5
+
+        console2.log('Proposal State:', uint256(governor.state(proposalId))); // Queued, 5
         assertEq(uint256(governor.state(proposalId)), 5);
-        // 4. Execute
+
+        // 4. Execute the proposal
         governor.execute(
             addressesToCall,
             values,
             functionCalls,
             descriptionHash
         );
-        console2.log('Proposal State:', uint256(governor.state(proposalId))); //Executed, 7
+
+        console2.log('Proposal State:', uint256(governor.state(proposalId))); // Executed, 7
         assertEq(uint256(governor.state(proposalId)), 7);
-        assert(box.retrieve() == valueToStore);
+
+        // Verify that the Box contract was updated
+        assert(box.getNumber() == valueToStore);
     }
 }

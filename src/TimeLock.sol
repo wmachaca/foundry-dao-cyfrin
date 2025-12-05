@@ -3,6 +3,7 @@
 pragma solidity ^0.8.18;
 
 import { TimelockController } from '@openzeppelin/contracts/governance/TimelockController.sol';
+import { console2 } from 'forge-std/console2.sol';
 
 contract TimeLock is TimelockController {
     //minDelay is the time that has to pass before a queued transaction can be executed
@@ -12,5 +13,7 @@ contract TimeLock is TimelockController {
         uint256 minDelay,
         address[] memory proposers,
         address[] memory executors
-    ) TimelockController(minDelay, proposers, executors, msg.sender) {}
+    ) TimelockController(minDelay, proposers, executors, msg.sender) {
+        console2.log('TimeLock deployed by:', msg.sender);
+    }
 }
