@@ -90,15 +90,28 @@ contract MyGovernorTest is Test {
         string memory description = 'Store 1 in Box';
 
         // Encode the function call to store a value in the Box contract
+        // This encoding is necessary because the governance system interacts with the Box contract indirectly.
+        // The encoded function call is passed to the Governor contract, which queues it in the TimeLock.
+        // When the proposal is executed, the TimeLock decodes the function call and executes it on the Box contract.
+        // This approach ensures that the governance system can handle arbitrary function calls securely and flexibly.
         bytes memory encodedFunctionCall = abi.encodeWithSignature(
             'store(uint256)',
             valueToStore
         );
         addressesToCall.push(address(box));
+        // The `values` array specifies the Ether (in wei) to send with the function call.
+        // Since the `store(uint256)` function does not require Ether, we push `0`.
+        // If the function were payable, this is where you would specify the Ether amount to send.
         values.push(0);
+
+        // The `functionCalls` array contains the encoded function call, including the function selector and arguments.
+        // In this case, it encodes the `store(uint256)` function with `valueToStore` as the argument.
         functionCalls.push(encodedFunctionCall);
 
         // 1. Propose to the DAO
+        // Only the governor can propose due to the PROPOSER_ROLE assigned in the setUp() function.
+        // The `governor.propose` function creates a proposal with the specified target addresses, Ether values, and function calls.
+        // The `description` provides a human-readable explanation of the proposal.
         uint256 proposalId = governor.propose(
             addressesToCall,
             values,
@@ -120,6 +133,11 @@ contract MyGovernorTest is Test {
         assertEq(uint256(governor.state(proposalId)), 0);
 
         // Advance time and blocks to make the proposal active
+        // Note: In this test, `VOTING_DELAY` is used for both time (seconds) and blocks.
+        // This assumes a block time of 1 second for simplicity. In a real blockchain, the block time is usually longer (e.g., 12 seconds on Ethereum).
+        // To simulate a realistic block time, you could define a `BLOCK_TIME` constant and adjust the delays:
+        // vm.warp(block.timestamp + VOTING_DELAY * BLOCK_TIME);
+        // vm.roll(block.number + VOTING_DELAY);
         vm.warp(block.timestamp + VOTING_DELAY + 1);
         vm.roll(block.number + VOTING_DELAY + 1);
 
@@ -127,6 +145,11 @@ contract MyGovernorTest is Test {
         assertEq(uint256(governor.state(proposalId)), 1);
 
         // 2. Vote
+        // The `VOTER` address can vote because:
+        // - It holds tokens (minted in the `setUp()` function).
+        // - It delegated its voting power to itself, which is required to gain voting power in OpenZeppelin's ERC20Votes.
+        // The `vm.prank(VOTER)` cheat code simulates the `VOTER` address as the caller (msg.sender) for the next transaction.
+        // The Governor contract enforces voting eligibility by checking that the voter has non-zero voting power.
         string memory reason = 'I like a do da cha cha';
         // 0 = Against, 1 = For, 2 = Abstain for this example
         uint8 voteWay = 1;
@@ -134,6 +157,10 @@ contract MyGovernorTest is Test {
         governor.castVoteWithReason(proposalId, voteWay, reason);
 
         // Advance time and blocks to end the voting period
+        // The proposal succeeds because:
+        // - The `VOTER` address holds 100 tokens and has delegated its voting power to itself.
+        // - The quorum requirement is 4% of the total supply (100 tokens), which equals 4 votes.
+        // - The `VOTER` casts 100 votes "For," exceeding the quorum and ensuring the proposal passes.
         vm.warp(block.timestamp + VOTING_PERIOD + 1);
         vm.roll(block.number + VOTING_PERIOD + 1);
 
